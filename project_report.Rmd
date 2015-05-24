@@ -1,0 +1,130 @@
+Practical Machine Learning - Prediction Assignment Writeup
+==========================================================
+
+Objective
+===========
+the “classe” variable which is present in the training set that was provided with the assignment.
+
+This assignment judiciously uses other variables in the training dataset to develop a model which predicts the ‘classe’ variable. This model is then cross-validated and the out of sample error is estimated. Finally, the machine learning model that was developed is used to predict 20 different test cases.
+
+Your submission should consist of a link to a Github repo with your R markdown and compiled HTML file describing your analysis. Please constrain the text of the writeup to < 2000 words and the number of figures to be less than 5. It will make it easier for the graders if you submit a repo with a gh-pages branch so the HTML page can be viewed online (and you always want to make it easy on graders :-).
+
+
+Loading Data
+===========
+The first step to a reproducible data analysis is to provide code for downloading and loading data in R studio. That is done using the code below.
+
+```{r, echo=FALSE}
+#assigning training and testing data URLs for downloading
+
+#urltrain <- 'https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv'
+#urltest <- 'https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv'
+
+#set the work directory  
+setwd("C:/Users/G-money/Desktop/Coursera_PML/pml-coursera")
+
+#download training and testing data
+#download.file(urltrain, destfile = "train.csv")
+#download.file(urltest, destfile = "test.csv")
+
+#reading the training and testing data
+trainset <- read.csv("train.csv", header = TRUE)
+testset <- read.csv("test.csv", header = TRUE)
+```
+
+Cleaning Data
+===========
+Next, the training dataset is tidied up by eliminating variables that do not add much value to the dataset and those which would not add value in developing a prediction model. We use the dplyr package to help clean up the data.
+
+First, we have a look at the summary of the data to see how much data is useful. It is observed that there are columns with significant amounts of ’NA’s or no values at all. From the summary we note which columns have NAs and which ones have occurrances of no values at all.
+
+Then, we eliminate columns that have occurrances of NAs. Next, we get rid of columns that have no values. Lastly, we eliminate the first seven columns that are identifiers and not variables that affect the ‘classe’ variable
+
+```{r, echo=FALSE, results='hide',warning=FALSE }
+library(caret)
+library(dplyr)
+library(e1071)
+library(randomForest)
+
+trainset1 <- tbl_df(trainset)
+
+#summary command called to see which variables have useless 'NA's or empty cells.
+summary(trainset1)
+
+trainset1<-trainset1[,colSums(is.na(trainset1)) == 0]
+trainset1 <- select(trainset1, -starts_with("kurtosis"))
+trainset1 <- select(trainset1, -starts_with("skewness"))
+trainset1 <- select(trainset1, -starts_with("max_yaw"))
+trainset1 <- select(trainset1, -starts_with("min_yaw"))
+trainset1 <- select(trainset1, -starts_with("amplitude_yaw"))
+trainset1 <- select(trainset1, 8: 60)
+```
+
+
+
+
+
+Model
+===========
+
+After cleaning the data, we partition the training data further into training and test data sets for machine learning algorithm building purposes. We first set a seed value for reproducibility and then split up the training data to cover 75% of the orginal training data and leave the rest for testing.
+
+```{r, echo=FALSE}
+#splitting training set 
+set.seed(12345)
+trainIndex = createDataPartition(trainset1$classe, p = 0.75, list = FALSE)
+trainset2 <- trainset1[trainIndex,]
+testset2 <- trainset1[-trainIndex,]
+```
+
+We then use the ‘randomForest’ machine learning algorithm to develop a model based on the selected variables. The ‘randomForest’ machine learning process is used due to its good accuracy and wide popularity in the machine learning community. Additionally the use of the randomForest algorithm is inspired by the original publication on this topic which also uses randomForest to train its model. 
+
+After, the model is developed, we use the ‘testset2’ dataset that we partitioned from the training dataset to cross-validate the ‘classe’ outcome that we got using our machine learning model. Cross-validation results and statistics are calculated using the confusionMatrix command to determine the accuracy of our model.
+
+```{r}
+fitModel1 <- randomForest(classe ~., data = trainset2)
+fitModel1
+```
+
+The randomForest results show that the out-of-bag error is about 0.46% which would be a good estimate for the out of sample error.
+
+The confusionMatrix results reveal an accuracy of about 99.4% which corresponds to an error of about 0.6%. The out of sample accuracy for the final test data, based on the confusionMatrix results, is estimated to be in the range of 99.2-99.6% with a 95% confidence. This would mean an out of sample error rate of about 0.4-0.8%. This estimation is based on results from the confusionMatrix command. This accuracy is a result of the use of a large number of variables as well as a large set of data.
+
+Finally, after we are satisfied with the accuracy levels of our model, we apply it to the official test dataset to predict the outcomes.
+
+Then, we make individual files of predicted test results which were predicted using the machine learning model we developed and the test data set. These files are then used for the submission of this assignment on Coursera.
+
+
+```{r}
+predicted <- predict(fitModel1, testset2)
+confusionMatrix(predicted, testset2$classe)
+```
+
+
+
+```{r}
+predict_test <- predict(fitModel1, testset)
+predict_test
+```
+
+
+
+
+```{r}
+#making seperate files for submission
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+pml_write_files(predict_test)
+```
+
+
+Results
+==========================================================
+
+As a result of the development of an accurate model using randomForest, the predicted outcomes of the 20 test cases were submitted. 
